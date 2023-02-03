@@ -8,10 +8,10 @@
 #include "lib/shader.h"
 
 // float vertices[] = {
-//     0.99f, 0.99f, 0.0f,
-//     0.99f, 0.01f, 0.0f,
-//     0.01f, 0.01f, 0.0f,
-//     0.01f, 0.99f, 0.0f};
+//     0.95f, 0.95f, 0.0f,
+//     0.95f, 0.05f, 0.0f,
+//     0.05f, 0.05f, 0.0f,
+//     0.05f, 0.95f, 0.0f};
 float vertices[] = {
     1.0f, 1.0f, 0.0f,
     1.0f, 0.0f, 0.0f,
@@ -30,8 +30,8 @@ static struct settings_t {
     vec3 alive_color;
     vec3 background_color;
 } settings = {
-    500,              // rows
-    500,              // columns
+    860,              // rows
+    360,              // columns
     {0.3, 0.3, 0.3}, // dead_color
     {1.0, 1.0, 1.0}, // alive_color
     {0.0, 0.0, 0.0}, // background_color
@@ -170,6 +170,5 @@ void destroy(void) {
 int main(void) {
     init();
     window_manager->render(window_manager, game_loop, &(struct timeval){ 0, 16 });
-    while(true) {}
     destroy();
 }
