@@ -6,8 +6,15 @@ static void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 }
 
 static void resize_window(window_manager_t *self, int width, int height) {
+    self->width = width;
+    self->height = height;
     framebuffer_size_callback(self->window, width, height);
     glfwSetFramebufferSizeCallback(self->window, &framebuffer_size_callback);
+}
+
+static void set_resize_callback(window_manager_t *self, void (*on_resize)(GLFWwindow *window, int width, int height)) {
+    on_resize(NULL, self->width, self->height);
+    glfwSetFramebufferSizeCallback(self->window, on_resize);
 }
 
 static action_e poll_for_key_input(window_manager_t *self, int key) {
@@ -20,7 +27,7 @@ static void close_window(window_manager_t *self) {
     glfwSetWindowShouldClose(self->window, true);
 }
 
-static void open_window(window_manager_t *self,  const char *title, int width, int height) {
+static void open_window(window_manager_t *self,  const char *title, int width, int height, GLFWmonitor *monitor) {
     if (self->window != NULL)
     {
         error("Must close current window before opening a new one");
@@ -30,7 +37,7 @@ static void open_window(window_manager_t *self,  const char *title, int width, i
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, GLFW_CONTEXT_VERSION_MINOR_VALUE);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_PROFILE_VALUE);
 
-    self->window = glfwCreateWindow(width, height, title, NULL, NULL);
+    self->window = glfwCreateWindow(width, height, title, monitor, NULL);
     if (self->window == NULL)
     {
         error("Failed to create GLFW window\nPlease reboot and try again.");
@@ -113,7 +120,8 @@ window_manager_t *init_window_manager()
     }
 
     self->poll_for_key_input = poll_for_key_input;
-    self->resize_window = resize_window;
+    // self->resize_window = resize_window;
+    self->set_resize_callback = set_resize_callback;
     self->close_window = close_window;
     self->open_window = open_window;
     self->get_window_dimensions = get_window_dimensions;
