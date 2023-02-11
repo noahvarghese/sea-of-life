@@ -73,10 +73,6 @@ static int getUniformLocation(int ID, const char *variableName)
     return uniformVarLocation;
 }
 
-/*****************************************************************/
-/*                         OOP  - BEWARE                         */
-/*****************************************************************/
-
 static void use(shader_t *self)
 {
     glUseProgram(self->ID);
@@ -98,6 +94,11 @@ static void setUniformFloat(shader_t *self, const char *uniformVarName, float va
 {
     int location = getUniformLocation(self->ID, uniformVarName);
     glUniform1f(location, val);
+}
+
+static void setUniformV2F(shader_t *self, const char *uniformVarName, float v1, float v2) {
+    int location = getUniformLocation(self->ID, uniformVarName);
+    glUniform2f(location, v1, v2);
 }
 
 static void setUniformV3F(shader_t *self, const char *uniformVarName, float v1, float v2, float v3)
@@ -168,6 +169,7 @@ shader_t *init_shader(const char *vertexShaderFilePath, const char *fragmentShad
     s->setUniformBool = setUniformBool;
     s->setUniformFloat = setUniformFloat;
     s->setUniformInt = setUniformInt;
+    s->setUniformV2F = setUniformV2F;
     s->setUniformV3F = setUniformV3F;
     s->setUniformV4F = setUniformV4F;
     s->setUniformM4F = setUniformM4F;

@@ -17,6 +17,7 @@ typedef struct shader_t
     void (*setUniformBool)(struct shader_t *self, const char *uniformVarName, bool val);
     void (*setUniformInt)(struct shader_t *self, const char *uniformVarName, int val);
     void (*setUniformFloat)(struct shader_t *self, const char *uniformVarName, float val);
+    void (*setUniformV2F)(struct shader_t *self, const char *uniformVarName, float v1, float v2);
     void (*setUniformV3F)(struct shader_t *self, const char *uniformVarName, float v1, float v2, float v3);
     void (*setUniformV4F)(struct shader_t *self, const char *uniformVarName, float v1, float v2, float v3, float v4);
     void (*setUniformM4F)(struct shader_t *self, const char *uniformVarName, mat4 mat);

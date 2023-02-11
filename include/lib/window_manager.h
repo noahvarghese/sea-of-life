@@ -22,9 +22,12 @@ typedef enum {
 
 typedef struct window_manager_t{
     GLFWwindow *window;
+    int width;
+    int height;
     void (*close_window)(struct window_manager_t *self);
-    void (*open_window)(struct window_manager_t *self, const char *title, int width, int height);
-    void (*resize_window)(struct window_manager_t *self, int width, int height);
+    void (*open_window)(struct window_manager_t *self, const char *title, int width, int height, GLFWmonitor *monitor);
+    void (*set_resize_callback)(struct window_manager_t *self, void (*on_resize)(GLFWwindow *window, int width, int height));
+    // void (*resize_window)(struct window_manager_t *self, int width, int height);
     action_e (*poll_for_key_input)(struct window_manager_t *self, int key);
     void (*get_window_dimensions)(struct window_manager_t *self, int *width, int *height);
     void (*render)(struct window_manager_t *self, void (*loop)(void), const struct timeval *interval);
