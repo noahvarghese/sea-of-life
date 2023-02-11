@@ -51,24 +51,28 @@ static bool gen_life() {
         return false;
 }
 
-static void seed_grid(bool **grid, int rows, int columns) {
-    for (int i = 0; i < rows; i++)
-    {
-        for (int j = 0; j < columns; j++) {
-            grid[i][j] = gen_life();
-        }
-    }
-}
-
 static void swap(life_t *self) {
-    bool **tmp;
-    tmp = self->grid;
+    bool **tmp_grid;
+    tmp_grid = self->grid;
     self->grid = self->shadow_grid;
-    self->shadow_grid = tmp;
+    self->shadow_grid = tmp_grid;
+
+    int_tuple_list_t *tmp_last_changed;
+    tmp_last_changed = self->last_changed;
+    self->last_changed = self->shadow_last_changed;
+    self->shadow_last_changed = tmp_last_changed;
 }
 
 static void seed(life_t *self) {
-    seed_grid(self->grid, self->rows, self->columns);
+    self->last_changed->clear(self->last_changed);
+
+    for (int i = 0; i < self->rows; i++)
+    {
+        for (int j = 0; j < self->columns; j++) {
+            self->grid[i][j] = gen_life();
+            self->last_changed->push(self->last_changed, (int[2]){i, j});
+        }
+    }
 }
 
 static bool get_alive(life_t *self, int x, int y) {
@@ -77,6 +81,7 @@ static bool get_alive(life_t *self, int x, int y) {
 
 static void set_alive(life_t *self, int x, int y, bool alive) {
     self->shadow_grid[x][y] = alive;
+    self->shadow_last_changed->push(self->shadow_last_changed, (int[2]){x,y});
 }
 
 static void init_grid(bool ***grid, int rows, int columns) {
@@ -119,23 +124,56 @@ static int get_num_alive_neighbors(life_t *self, int x, int y) {
     return alive_neighbors;
 }
 
-static void live(life_t *self) {
-    for (int i = 0; i < self->rows; i++) {
-        for (int j = 0; j < self->columns; j++) {
-            bool is_alive = self->get_alive(self, i, j);
-            int alive_neighbors = get_num_alive_neighbors(self, i, j);
+// static void live(life_t *self) {
+//     self->shadow_last_changed->clear(self->shadow_last_changed);
 
-            if (is_alive && (alive_neighbors < 2 || alive_neighbors > 3)) {
-                self->set_alive(self, i, j, false);
-                continue;
-            } else if (alive_neighbors == 3) {
-                self->set_alive(self, i, j, true);
-                continue;
-            }
+//     for (int i = 0; i < self->rows; i++)
+//     {
+//         for (int j = 0; j < self->columns; j++) {
+//             bool is_alive = self->get_alive(self, i, j);
+//             int alive_neighbors = get_num_alive_neighbors(self, i, j);
 
-            self->set_alive(self, i, j, is_alive);
-        }
+//             if (is_alive && (alive_neighbors < 2 || alive_neighbors > 3)) {
+//                 self->set_alive(self, i, j, false);
+//                 continue;
+//             } else if (alive_neighbors == 3) {
+//                 self->set_alive(self, i, j, true);
+//                 continue;
+//             }
+
+//             self->set_alive(self, i, j, is_alive);
+//         }
+//     }
+
+//     self->swap(self);
+// }
+
+static void life_delegate(int coordinate[2], int index, void *context)
+{
+    life_t *self = (life_t *)context;
+    bool is_alive = self->get_alive(self, coordinate[0], coordinate[1]);
+    int alive_neighbors = get_num_alive_neighbors(context, coordinate[0], coordinate[1]);
+    bool should_live = is_alive;
+
+    if (is_alive && (alive_neighbors < 2 || alive_neighbors > 3))
+        should_live = false;
+    else if (alive_neighbors == 3)
+        should_live = true;
+
+    bool changed = is_alive == should_live;
+
+    if (changed)
+    {
+        self->shadow_last_changed->push(self->shadow_last_changed, coordinate);
+        self->set_alive(self, coordinate[0], coordinate[1], should_live);
     }
+}
+
+static void live2(life_t *self)
+{
+    self->shadow_last_changed->clear(self->shadow_last_changed);
+
+    self->last_changed->for_each(self->last_changed, life_delegate, self);
 
     self->swap(self);
 }
@@ -152,6 +190,9 @@ life_t *init_life(int rows, int columns) {
     self->rows = rows;
     self->columns = columns;
 
+    self->last_changed = init_int_tuple_list(rows * columns, NULL);
+    self->shadow_last_changed = init_int_tuple_list(rows * columns, NULL);
+
     init_grid(&self->grid, self->rows, self->columns);
     init_grid(&self->shadow_grid, self->rows, self->columns);
 
@@ -161,13 +202,17 @@ life_t *init_life(int rows, int columns) {
     self->swap = swap;
     self->set_alive = set_alive;
     self->get_alive = get_alive;
-    self->live = live;
+    self->live = live2;
+    // self->live = live;
 
     return self;
 }
 
 void destroy_life(life_t *self) {
-    for (int i = 0; i < self->rows; i++) {
+    destroy_int_tuple_list(self->last_changed);
+    destroy_int_tuple_list(self->shadow_last_changed);
+    for (int i = 0; i < self->rows; i++)
+    {
         free(self->grid[i]);
     }
     free(self->grid);

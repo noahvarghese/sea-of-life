@@ -83,6 +83,7 @@ static void render_frame_limit(window_manager_t *self, void (*loop)(void), struc
 
     if (should_render)
     {
+        printf("%ld, %ld\n\n", sec_diff, usec_diff);
         self->render_once(self, loop);
 
         prev_render->tv_sec = curr_render.tv_sec;

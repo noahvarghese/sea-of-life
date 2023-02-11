@@ -4,6 +4,7 @@
 
 #include "utils/std_utils.h"
 #include "utils/string_utils.h"
+#include "utils/int_tuple_list.h"
 #include <stdbool.h>
 #include <time.h>
 
@@ -13,6 +14,8 @@ typedef struct life_t
     int columns;
     bool **grid;
     bool **shadow_grid;
+    int_tuple_list_t *last_changed;
+    int_tuple_list_t *shadow_last_changed;
     void (*print)(struct life_t *self);
     void (*print_shadow)(struct life_t *self);
     void (*seed)(struct life_t *self);

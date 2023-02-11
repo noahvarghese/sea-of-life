@@ -21,8 +21,8 @@ static struct settings_t {
     vec3 background_color;
 } settings = {
     true,               
-    860,               
-    360,              
+    360,                // rows
+    860,              // columns
     4.0,                
     {0.3, 0.3, 0.3},    
     {1.0, 1.0, 1.0},   
