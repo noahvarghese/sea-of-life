@@ -34,6 +34,7 @@ typedef struct window_manager_t{
     void (*close_window)(struct window_manager_t *self);
     void (*open_window)(struct window_manager_t *self, const char *title, int width, int height, GLFWmonitor *monitor);
     void (*set_resize_callback)(struct window_manager_t *self, void (*on_resize)(GLFWwindow *window, int width, int height));
+    void (*set_mouse_scroll_callback)(struct window_manager_t *self, void (*on_mouse_scroll)(GLFWwindow *window, double xoffset, double yoffset));
     // void (*resize_window)(struct window_manager_t *self, int width, int height);
     // action_e (*poll_for_key_input)(struct window_manager_t *self, int key);
     // void (*process_inputs)(struct window_manager_t *self, struct timeval *delta_time);
