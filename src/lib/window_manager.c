@@ -23,6 +23,17 @@ static action_e poll_for_key_input(window_manager_t *self, int key) {
     return action;
 }
 
+static void process_inputs(window_manager_t *self, struct timeval *delta_time) {
+    vector_t *inputs = self->_input_manager->_inputs;
+
+    for (int i = 0; i < inputs->length; i++) {
+        input_t *input = ((input_t **)inputs->items)[i];
+
+        if (poll_for_key_input(self, input->key)) 
+            input->callback(delta_time);
+    }
+}
+
 static void close_window(window_manager_t *self) {
     glfwSetWindowShouldClose(self->window, true);
 }
@@ -57,54 +68,54 @@ static void get_window_dimensions(window_manager_t *self, int *width, int *heigh
     glfwGetWindowSize(self->window, width, height);
 }
 
-static void render_once(window_manager_t *self, void (*loop)(void)) {
-    loop();
+static void render_once(window_manager_t *self, void (*loop)(struct timeval *delta_time), struct timeval *delta_time) {
+    process_inputs(self, delta_time);
+    loop(delta_time);
     glfwSwapBuffers(self->window);
     glfwPollEvents();
 }
 
-static void render_frame_limit(window_manager_t *self, void (*loop)(void), struct timeval interval, struct timeval *prev_render) {
+static void render_frame_limit(window_manager_t *self, void (*loop)(struct timeval *delta_time), struct timeval frame_duration, struct timeval *prev_render) {
     struct timeval curr_render;
-    long int sec_diff;
-    long int usec_diff;
-
     gettimeofday(&curr_render, NULL);
 
-    sec_diff = curr_render.tv_sec - prev_render->tv_sec;
-    usec_diff = curr_render.tv_usec - prev_render->tv_usec;
-
+    struct timeval delta_time = (struct timeval)
+    {
+        curr_render.tv_sec - prev_render->tv_sec,
+        curr_render.tv_usec - prev_render->tv_usec,
+    };
 
     bool should_render = false;
 
-    if (sec_diff >= interval.tv_sec)
+    if (delta_time.tv_sec >= frame_duration.tv_sec)
         should_render = true;
-    else if (sec_diff == interval.tv_sec && usec_diff > interval.tv_usec)
+    else if (delta_time.tv_sec == frame_duration.tv_sec && delta_time.tv_usec > frame_duration.tv_usec)
         should_render = true;
 
     if (should_render)
     {
-        self->render_once(self, loop);
-
         prev_render->tv_sec = curr_render.tv_sec;
         prev_render->tv_usec = curr_render.tv_usec;
+
+        self->render_once(self, loop, &delta_time);
     }
 }
 
-static void render(window_manager_t *self, void (*loop)(void), const struct timeval *interval) {
+static void render(window_manager_t *self, void (*loop)(struct timeval *delta_time), const struct timeval *frame_duration) {
     struct timeval render_time = { 0, 0 };
 
     while(!glfwWindowShouldClose(self->window)) {
-        if (interval != NULL)
+        if (frame_duration != NULL)
         {
-            self->render_frame_limit(self, loop, *interval, &render_time);
+            self->render_frame_limit(self, loop, *frame_duration, &render_time);
         }
         else
         {
-            self->render_once(self, loop);
+            self->render_once(self, loop, NULL);
         }
     }
 }
-window_manager_t *init_window_manager()
+window_manager_t *init_window_manager(input_config_t input_config)
 {
     if (!glfwInit())
     {
@@ -119,7 +130,8 @@ window_manager_t *init_window_manager()
         error("Unable to allocate memory for window");
     }
 
-    self->poll_for_key_input = poll_for_key_input;
+    // self->poll_for_key_input = poll_for_key_input;
+    // self->process_inputs = process_inputs;
     // self->resize_window = resize_window;
     self->set_resize_callback = set_resize_callback;
     self->close_window = close_window;
@@ -129,6 +141,7 @@ window_manager_t *init_window_manager()
     self->render_once = render_once;
     self->render_frame_limit = render_frame_limit;
     self->window = NULL;
+    self->_input_manager = init_input_manager(input_config.inputs, input_config.num_inputs);
 
     return self;
 }
@@ -136,5 +149,6 @@ window_manager_t *init_window_manager()
 void free_window_manager(window_manager_t *self) {
     glfwDestroyWindow(self->window);
     glfwTerminate();
+    free(self->_input_manager);
     free(self);
 }

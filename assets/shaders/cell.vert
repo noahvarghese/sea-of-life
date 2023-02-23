@@ -38,7 +38,7 @@ void main()
     vec4 position = vec4(point, 1.0, 1.0);
 
     if (accelerate) {
-        // Matrixes are column major ordered...
+        // Matrices are column major ordered...
         mat4 translatedView = mat4(
             vec4(1.0, 0.0, 0.0, 0.0),
             vec4(0.0, 1.0, 0.0, 0.0),

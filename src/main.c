@@ -19,14 +19,16 @@ static struct settings_t {
     vec3 dead_color;
     vec3 alive_color;
     vec3 background_color;
+    struct timeval frame_duration;
 } settings = {
-    true,               
-    360,               
-    860,              
-    4.0,                
-    {0.3, 0.3, 0.3},    
-    {1.0, 1.0, 1.0},   
-    {0.0, 0.0, 0.0},    
+    true,
+    360,
+    840,
+    10.0f,
+    {0.3, 0.3, 0.3},
+    {1.0, 1.0, 1.0},
+    {0.0, 0.0, 0.0},
+    (struct timeval){0, 16000 /* 60 fps == 16ms == 16000us */},
 };
 
 static struct uniforms_t {
@@ -80,10 +82,10 @@ static void load_settings() {
     float num_cells_in_width = width / settings.cell_width;
     float num_cells_in_height = height / settings.cell_width;
 
-    float left = num_cells_in_width / -2.0f;
-    float right = num_cells_in_width / 2.0f;
-    float bottom = num_cells_in_height / -2.0f;
-    float top = num_cells_in_height / 2.0f;
+    float left = (num_cells_in_width / -2.0f);
+    float right = (num_cells_in_width / 2.0f);
+    float bottom = (num_cells_in_height / -2.0f);
+    float top = (num_cells_in_height / 2.0f);
     float near = 0.0f;
     float far = 100.0f;
 
@@ -98,8 +100,80 @@ static void on_window_resize(GLFWwindow *_, int w, int h) {
     load_settings();
 }
 
+static inline float timeval_to_micro_seconds(struct timeval time) {
+    return time.tv_sec * 1000000.0f + time.tv_usec;
+}
+
+static float get_interval(struct timeval frame_duration, struct timeval *delta_time) {
+    if (delta_time == NULL)
+        return 1.0f;
+
+    float frame_duration_us = timeval_to_micro_seconds(frame_duration);
+    float delta_time_us = timeval_to_micro_seconds(*delta_time);
+
+    if (frame_duration_us >= delta_time_us)
+        return 1.0f;
+
+    return delta_time_us / frame_duration_us;
+}
+
+static void close_window()
+{
+    window_manager->close_window(window_manager);
+}
+
+static void camera_down(struct timeval *delta_time) {
+    float interval = get_interval(settings.frame_duration, delta_time);
+    grid_center[0] -= interval;
+    shader->setUniformV2F(shader, uniforms.grid_center, grid_center[0], grid_center[1]);
+}
+
+static void camera_up(struct timeval *delta_time) {
+    float interval = get_interval(settings.frame_duration, delta_time);
+    grid_center[0] += interval;
+    shader->setUniformV2F(shader, uniforms.grid_center, grid_center[0], grid_center[1]);
+}
+
+static void camera_left(struct timeval *delta_time) {
+    float interval = get_interval(settings.frame_duration, delta_time);
+    grid_center[1] -= interval;
+    shader->setUniformV2F(shader, uniforms.grid_center, grid_center[0], grid_center[1]);
+}
+
+static void camera_right(struct timeval *delta_time) {
+    float interval = get_interval(settings.frame_duration, delta_time);
+    grid_center[1] += interval;
+    shader->setUniformV2F(shader, uniforms.grid_center, grid_center[0], grid_center[1]);
+}
+
+static void reset_camera() {
+    grid_center[0] = (float)(settings.rows / 2);
+    grid_center[1] = (float)(settings.columns / 2);
+    shader->setUniformV2F(shader, uniforms.grid_center, grid_center[0], grid_center[1]);
+}
+
+static void restart_life() {
+    life->seed(life);
+}
+
+input_t *keyboard_inputs[] = (input_t *[]){
+    &(input_t){GLFW_KEY_ESCAPE, close_window},
+    &(input_t){GLFW_KEY_DOWN, camera_down},
+    &(input_t){GLFW_KEY_UP, camera_up},
+    &(input_t){GLFW_KEY_LEFT, camera_left},
+    &(input_t){GLFW_KEY_RIGHT, camera_right},
+    &(input_t){GLFW_KEY_R, reset_camera},
+    &(input_t){GLFW_KEY_SPACE, restart_life},
+};
+
+input_config_t input_config = (input_config_t){
+    keyboard_inputs,
+    7,
+};
+
 static void init_graphics(void) {
-    window_manager = init_window_manager();
+    window_manager = init_window_manager(input_config);
+
     window_manager->open_window(window_manager, "Sea of Life", 800, 800, NULL);
     window_manager->set_resize_callback(window_manager, on_window_resize);
 
@@ -131,7 +205,7 @@ static void destroy_graphics(void) {
     free_window_manager(window_manager);
 }
 
-void game_loop(void)
+void game_loop()
 {
     life->live(life);
 
@@ -164,19 +238,14 @@ void game_loop(void)
     }
 }
 
-void init(void) {
+int main(void) {
     life = init_life(settings.rows, settings.columns);
     life->seed(life);
     init_graphics();
-}
-
-void destroy(void) {
+    
+    // life->live(life);
+    window_manager->render(window_manager, game_loop, &settings.frame_duration);
+    
     destroy_life(life);
     destroy_graphics();
-}
-
-int main(void) {
-    init();
-    window_manager->render(window_manager, game_loop, &(struct timeval){ 0, 16000 /* 60 fps == 16ms == 16000us */ });
-    destroy();
 }
