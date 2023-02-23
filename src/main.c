@@ -7,42 +7,32 @@
 #include "lib/window_manager.h"
 #include "lib/shader.h"
 
-// float vertices[] = {
-//     0.99f, 0.99f, 0.0f,
-//     0.99f, 0.01f, 0.0f,
-//     0.01f, 0.01f, 0.0f,
-//     0.01f, 0.99f, 0.0f};
 float vertices[] = {
-    1.0f, 1.0f, 0.0f,
-    1.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f,
-    0.0f, 1.0f, 0.0f};
-
-
-unsigned int indices[] = {
-    0, 1, 3,
-    1, 2, 3};
+   0.5f, 0.5f 
+};
 
 static struct settings_t {
+    bool accelerate;
     int rows;
     int columns;
+    float cell_width;
     vec3 dead_color;
     vec3 alive_color;
     vec3 background_color;
 } settings = {
-    500,              // rows
-    500,              // columns
-    {0.3, 0.3, 0.3}, // dead_color
-    {1.0, 1.0, 1.0}, // alive_color
-    {0.0, 0.0, 0.0}, // background_color
+    true,               
+    360,               
+    860,              
+    4.0,                
+    {0.3, 0.3, 0.3},    
+    {1.0, 1.0, 1.0},   
+    {0.0, 0.0, 0.0},    
 };
 
 static struct uniforms_t {
-    const char *row;
-    const char *column;
-    const char *is_alive;
-    const char *rows;
-    const char *columns;
+    const char *accelerate;
+    const char *cell;
+    const char *grid_center;
     const char *cell_width;
     const char *alive_color;
     const char *dead_color;
@@ -50,11 +40,9 @@ static struct uniforms_t {
     const char *view;
     const char *projection;
 } uniforms = {
-    "row",
-    "column",
-    "is_alive",
-    "rows",
-    "columns",
+    "accelerate",
+    "cell",
+    "gridCenter",
     "cellWidth",
     "aliveColor",
     "deadColor",
@@ -63,55 +51,72 @@ static struct uniforms_t {
     "projection"
 };
 
-unsigned int VAO;
-unsigned int VBO;
-unsigned int EBO;
+int width = 1;
+int height = 1;
+unsigned int VAO, VBO;
 
 window_manager_t *window_manager;
-shader_t *shader;
+shader_t *shader = NULL;
 life_t *life;
+vec2 grid_center = {};
 
-static void init_graphics(void) {
-    window_manager = init_window_manager();
-    window_manager->open_window(window_manager, "Sea of Life", 800, 800);
-    shader = init_shader("./assets/shaders/cell.vert", "./assets/shaders/cell.frag");
+static void load_settings() {
+    if (shader == NULL)
+        return;
 
-    unsigned int VAO, VBO, EBO;
-
-    glGenBuffers(1, &EBO);
-    glGenBuffers(1, &VBO);
-    glGenVertexArrays(1, &VAO);
-
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
-    glEnableVertexAttribArray(0);
+    grid_center[0] = (float)(settings.rows / 2);
+    grid_center[1] = (float)(settings.columns / 2);
 
     shader->use(shader);
     shader->setUniformV3F(shader, uniforms.alive_color, settings.alive_color[0], settings.alive_color[1], settings.alive_color[2]);
     shader->setUniformV3F(shader, uniforms.dead_color, settings.dead_color[0], settings.dead_color[1], settings.dead_color[2]);
-
-    mat4 model;
-    glm_mat4_identity(model);
-    shader->setUniformM4F(shader, uniforms.model, model);
+    shader->setUniformFloat(shader, uniforms.cell_width, settings.cell_width);
+    shader->setUniformV2F(shader, uniforms.grid_center, grid_center[0], grid_center[1]);
+    shader->setUniformBool(shader, uniforms.accelerate, settings.accelerate);
 
     mat4 projection;
+    glm_mat4_identity(projection);
 
-    float left = 0.0f;
-    float right = settings.rows * 1.0f;
-    float bottom = 0.0f;
-    float top = settings.columns * 1.0f;
-    float near = 0.1f;
+    float num_cells_in_width = width / settings.cell_width;
+    float num_cells_in_height = height / settings.cell_width;
+
+    float left = num_cells_in_width / -2.0f;
+    float right = num_cells_in_width / 2.0f;
+    float bottom = num_cells_in_height / -2.0f;
+    float top = num_cells_in_height / 2.0f;
+    float near = 0.0f;
     float far = 100.0f;
 
     glm_ortho(left, right, bottom, top, near, far, projection);
     shader->setUniformM4F(shader, uniforms.projection, projection);
+}
+
+static void on_window_resize(GLFWwindow *_, int w, int h) {
+    width = w;
+    height = h;
+    glViewport(0, 0, width, height);
+    load_settings();
+}
+
+static void init_graphics(void) {
+    window_manager = init_window_manager();
+    window_manager->open_window(window_manager, "Sea of Life", 800, 800, NULL);
+    window_manager->set_resize_callback(window_manager, on_window_resize);
+
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glDisable(GL_DEPTH_TEST);
+
+    shader = init_shader("./assets/shaders/cell.vert", "./assets/shaders/cell.frag");
+
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void *)0);
+    glEnableVertexAttribArray(0);
 }
 
 static void destroy_graphics(void) {
@@ -130,11 +135,7 @@ void game_loop(void)
 {
     life->live(life);
 
-    glDisable(GL_DEPTH_TEST);
-
-    // Must clear before drawing (not after)
     glClear(GL_COLOR_BUFFER_BIT);
-
     glClearColor(
         settings.background_color[0], 
         settings.background_color[1], 
@@ -144,14 +145,21 @@ void game_loop(void)
 
     for (int i = 0; i < settings.rows; i++) {
         for (int j = 0; j < settings.columns; j++) {
-            mat4 view;
-            glm_mat4_identity(view);
-            glm_translate(view, (vec3){i * 1.0f, j * 1.0f, -1.0f});
-            shader->setUniformM4F(shader, uniforms.view, view);
+            if (!settings.accelerate) {
+                mat4 view;
+                glm_mat4_identity(view);
+                glm_translate(view, (vec3){j - grid_center[1], i - grid_center[0], -1.0f});
+                shader->setUniformM4F(shader, uniforms.view, view);
+            }
 
-            shader->setUniformInt(shader, uniforms.is_alive, life->get_alive(life, i, j));
-
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            shader->setUniformV3F(
+                shader, 
+                uniforms.cell, 
+                (float)i, 
+                (float)j, 
+                (float)life->get_alive(life, i , j)
+            );
+            glDrawArrays(GL_POINTS, 0, 1);
         }
     }
 }
@@ -169,7 +177,6 @@ void destroy(void) {
 
 int main(void) {
     init();
-    window_manager->render(window_manager, game_loop, &(struct timeval){ 0, 16 });
-    while(true) {}
+    window_manager->render(window_manager, game_loop, &(struct timeval){ 0, 16000 /* 60 fps == 16ms == 16000us */ });
     destroy();
 }
