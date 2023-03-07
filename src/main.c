@@ -61,13 +61,14 @@ window_manager_t *window_manager;
 shader_t *shader = NULL;
 life_t *life;
 vec2 grid_center = {};
+float scale = 0.0f;
 
 static void load_settings() {
     if (shader == NULL)
         return;
 
-    grid_center[0] = (float)(settings.rows / 2);
-    grid_center[1] = (float)(settings.columns / 2);
+    grid_center[0] = round(settings.rows / 2);
+    grid_center[1] = round(settings.columns / 2);
 
     shader->use(shader);
     shader->setUniformV3F(shader, uniforms.alive_color, settings.alive_color[0], settings.alive_color[1], settings.alive_color[2]);
@@ -78,14 +79,13 @@ static void load_settings() {
 
     mat4 projection;
     glm_mat4_identity(projection);
+    float num_cells_in_width = round(width / settings.cell_width);
+    float num_cells_in_height = round(height / settings.cell_width);
 
-    float num_cells_in_width = width / settings.cell_width;
-    float num_cells_in_height = height / settings.cell_width;
-
-    float left = (num_cells_in_width / -2.0f);
-    float right = (num_cells_in_width / 2.0f);
-    float bottom = (num_cells_in_height / -2.0f);
-    float top = (num_cells_in_height / 2.0f);
+    float left = round(num_cells_in_width / -2.0f);
+    float right = round(num_cells_in_width / 2.0f);
+    float bottom = round(num_cells_in_height / -2.0f);
+    float top = round(num_cells_in_height / 2.0f);
     float near = 0.0f;
     float far = 100.0f;
 
@@ -98,6 +98,36 @@ static void on_window_resize(GLFWwindow *_, int w, int h) {
     height = h;
     glViewport(0, 0, width, height);
     load_settings();
+}
+
+static void on_scroll(GLFWwindow* window, double xoffset, double yoffset)
+{
+    float scaled_width = settings.cell_width + scale + yoffset;
+    
+    // If we deal in less than whole numbers then black lines appear as GL_DEPTH_TEST is off
+    if (scaled_width > 1.0f) 
+        scale += yoffset;
+
+    shader->setUniformFloat(
+        shader, 
+        uniforms.cell_width, 
+        scaled_width
+    );
+
+    mat4 projection;
+    glm_mat4_identity(projection);
+    float num_cells_in_width = width / scaled_width;
+    float num_cells_in_height = height / scaled_width;
+
+    float left = (num_cells_in_width / -2.0f);
+    float right = (num_cells_in_width / 2.0f);
+    float bottom = (num_cells_in_height / -2.0f);
+    float top = (num_cells_in_height / 2.0f);
+    float near = 0.0f;
+    float far = 100.0f;
+
+    glm_ortho(left, right, bottom, top, near, far, projection);
+    shader->setUniformM4F(shader, uniforms.projection, projection);
 }
 
 static inline float timeval_to_micro_seconds(struct timeval time) {
@@ -147,9 +177,26 @@ static void camera_right(struct timeval *delta_time) {
 }
 
 static void reset_camera() {
+    scale = 1.0f;
     grid_center[0] = (float)(settings.rows / 2);
     grid_center[1] = (float)(settings.columns / 2);
     shader->setUniformV2F(shader, uniforms.grid_center, grid_center[0], grid_center[1]);
+    shader->setUniformFloat(shader, uniforms.cell_width, settings.cell_width);
+
+    mat4 projection;
+    glm_mat4_identity(projection);
+    float num_cells_in_width = round(width / settings.cell_width);
+    float num_cells_in_height = round(height / settings.cell_width);
+
+    float left = (num_cells_in_width / -2.0f);
+    float right = (num_cells_in_width / 2.0f);
+    float bottom = (num_cells_in_height / -2.0f);
+    float top = (num_cells_in_height / 2.0f);
+    float near = 0.0f;
+    float far = 100.0f;
+
+    glm_ortho(left, right, bottom, top, near, far, projection);
+    shader->setUniformM4F(shader, uniforms.projection, projection);
 }
 
 static void restart_life() {
@@ -176,6 +223,7 @@ static void init_graphics(void) {
 
     window_manager->open_window(window_manager, "Sea of Life", 800, 800, NULL);
     window_manager->set_resize_callback(window_manager, on_window_resize);
+    window_manager->set_mouse_scroll_callback(window_manager, on_scroll);
 
     glEnable(GL_PROGRAM_POINT_SIZE);
     glDisable(GL_DEPTH_TEST);

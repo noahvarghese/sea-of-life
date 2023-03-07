@@ -13,8 +13,13 @@ static void resize_window(window_manager_t *self, int width, int height) {
 }
 
 static void set_resize_callback(window_manager_t *self, void (*on_resize)(GLFWwindow *window, int width, int height)) {
-    on_resize(NULL, self->width, self->height);
+    on_resize(self->window, self->width, self->height);
     glfwSetFramebufferSizeCallback(self->window, on_resize);
+}
+
+static void set_mouse_scroll_callback(window_manager_t *self, void(*on_mouse_scroll)(GLFWwindow* window, double xoffset, double yoffset))
+{
+    glfwSetScrollCallback(self->window, on_mouse_scroll);
 }
 
 static action_e poll_for_key_input(window_manager_t *self, int key) {
@@ -134,6 +139,7 @@ window_manager_t *init_window_manager(input_config_t input_config)
     // self->process_inputs = process_inputs;
     // self->resize_window = resize_window;
     self->set_resize_callback = set_resize_callback;
+    self->set_mouse_scroll_callback = set_mouse_scroll_callback;
     self->close_window = close_window;
     self->open_window = open_window;
     self->get_window_dimensions = get_window_dimensions;
