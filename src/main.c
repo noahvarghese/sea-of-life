@@ -61,14 +61,14 @@ window_manager_t *window_manager;
 shader_t *shader = NULL;
 life_t *life;
 vec2 grid_center = {};
-float scale = 1.0f;
+float scale = 0.0f;
 
 static void load_settings() {
     if (shader == NULL)
         return;
 
-    grid_center[0] = (float)round(settings.rows / 2);
-    grid_center[1] = (float)round(settings.columns / 2);
+    grid_center[0] = round(settings.rows / 2);
+    grid_center[1] = round(settings.columns / 2);
 
     shader->use(shader);
     shader->setUniformV3F(shader, uniforms.alive_color, settings.alive_color[0], settings.alive_color[1], settings.alive_color[2]);
@@ -102,19 +102,22 @@ static void on_window_resize(GLFWwindow *_, int w, int h) {
 
 static void on_scroll(GLFWwindow* window, double xoffset, double yoffset)
 {
-    if (scale <= 1.0f && yoffset < 0)
-        scale *= 0.8f;
-    else if (scale <= 1.0f && yoffset > 0)
-        scale /= 0.8f;
-    else
+    float scaled_width = settings.cell_width + scale + yoffset;
+    
+    // If we deal in less than whole numbers then black lines appear as GL_DEPTH_TEST is off
+    if (scaled_width > 1.0f) 
         scale += yoffset;
 
-    shader->setUniformFloat(shader, uniforms.cell_width, settings.cell_width * scale > 1.0f ? round(settings.cell_width * scale) : 1.0f);
+    shader->setUniformFloat(
+        shader, 
+        uniforms.cell_width, 
+        scaled_width
+    );
 
     mat4 projection;
     glm_mat4_identity(projection);
-    float num_cells_in_width = round(width / settings.cell_width / scale);
-    float num_cells_in_height = round(height / settings.cell_width / scale);
+    float num_cells_in_width = width / scaled_width;
+    float num_cells_in_height = height / scaled_width;
 
     float left = (num_cells_in_width / -2.0f);
     float right = (num_cells_in_width / 2.0f);
