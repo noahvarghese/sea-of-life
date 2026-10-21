@@ -23,18 +23,19 @@ Includes keyboard controls to explore (arrow keys, space bar to reset life, and 
 
 ### Prerequisites
 
-- primary development OS is Arch Linux
-  - command to install neccessary dependencies on the above platform is:
-    - `sudo pacman -S base-devel glfw-wayland glfw-x11 mesa mesa-utils`
-    - This will install GLFW, glad source code is included with the repo
+- Requires GLAD and GLFW
+  - primary development OS is Arch Linux
+    - command to install neccessary dependencies on the above platform is:
+      - `sudo pacman -S base-devel glfw-wayland glfw-x11 mesa mesa-utils`
+      - This will install GLFW, glad source code is included with the repo
 
 ### Repository structure
 
-├── assets/
-│ └── shaders/
-├── demo/
-├── include/
-├── src/
+- ├── assets/
+- │ └── shaders/
+- ├── demo/
+- ├── include/
+- ├── src/
 
 ## Example
 
