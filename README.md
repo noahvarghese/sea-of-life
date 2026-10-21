@@ -30,11 +30,11 @@ Includes keyboard controls to explore (arrow keys, space bar to reset life, and 
 
 ### Repository structure
 
-├── assets/ # static assets
-│ └── shaders/ # shader code (GLSL)
-├── demo/ # images/videos of demonstrations
-├── include/ # header files for compilation
-├── src/ # C source files for compilation
+├── assets/
+│ └── shaders/
+├── demo/
+├── include/
+├── src/
 
 ## Example
 
