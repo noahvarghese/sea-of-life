@@ -3,9 +3,11 @@
 #include <assert.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <unistd.h>
 #include "life.h"
 #include "lib/window_manager.h"
 #include "lib/shader.h"
+#include "lib/thread_pool.h"
 
 float vertices[] = {
    0.5f, 0.5f 
@@ -13,6 +15,7 @@ float vertices[] = {
 
 static struct settings_t {
     bool accelerate;
+    bool multithreaded;
     int rows;
     int columns;
     float cell_width;
@@ -21,6 +24,7 @@ static struct settings_t {
     vec3 background_color;
     struct timeval frame_duration;
 } settings = {
+    true,
     true,
     360,
     840,
@@ -239,10 +243,20 @@ void game_loop()
 }
 
 int main(void) {
-    life = init_life(settings.rows, settings.columns);
+    thread_pool_t *thread_pool;
+    job_queue_t *job_queue;
+
+    if (settings.multithreaded)
+    {
+        long num_threads = sysconf(_SC_NPROCESSORS_ONLN) - 1;
+        job_queue = init_job_queue();
+        thread_pool = init_thread_pool(num_threads, job_queue);
+    }
+
+    life = init_life(settings.rows, settings.columns, thread_pool);
     life->seed(life);
     init_graphics();
-    
+
     // life->live(life);
     window_manager->render(window_manager, game_loop, &settings.frame_duration);
     

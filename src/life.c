@@ -119,28 +119,87 @@ static int get_num_alive_neighbors(life_t *self, int x, int y) {
     return alive_neighbors;
 }
 
-static void live(life_t *self) {
-    for (int i = 0; i < self->rows; i++) {
-        for (int j = 0; j < self->columns; j++) {
-            bool is_alive = self->get_alive(self, i, j);
-            int alive_neighbors = get_num_alive_neighbors(self, i, j);
+static void cell_life(life_t *life, int x, int y) {
+    bool is_alive = life->get_alive(life, x, y);
+    int alive_neighbors = get_num_alive_neighbors(life, x, y);
 
-            if (is_alive && (alive_neighbors < 2 || alive_neighbors > 3)) {
-                self->set_alive(self, i, j, false);
-                continue;
-            } else if (alive_neighbors == 3) {
-                self->set_alive(self, i, j, true);
-                continue;
-            }
+    if (is_alive && (alive_neighbors < 2 || alive_neighbors > 3)) {
+        life->set_alive(life, x, y, false);
+    } else if (alive_neighbors == 3) {
+        life->set_alive(life, x, y, true);
+    } else {
+        life->set_alive(life, x, y, is_alive);
+    }
+}
 
-            self->set_alive(self, i, j, is_alive);
+typedef struct args_t {
+    life_t *life;
+    int starting_row;
+    int ending_row;
+    int starting_column;
+    int ending_column;
+} args_t;
+
+static void *live_separate(void *args)
+{
+    struct args_t *life_args = args;
+    printf("%p\n", &args);
+
+    pthread_t self = pthread_self();
+    printf("Running thread [%ld]\n", self);
+    printf("\tstarting_col: %d, ending_col: %d, starting_row: %d, ending_row: %d\n", life_args->starting_column, life_args->ending_column, life_args->starting_row, life_args->ending_row);
+    printf("\n");
+
+    for (int i = life_args->starting_row; i < life_args->ending_row; i++) {
+        for (int j = life_args->starting_column; i < life_args->ending_column; i++) {
+            cell_life(life_args->life, i, j);
         }
     }
 
+    return NULL;
+}
+
+static void live_concurrently(life_t *self) {
+    int assigned_rows = 0;
+
+    while (assigned_rows < self->rows) {
+        args_t *args;
+        args = calloc(1, sizeof(args_t));
+        if (args == NULL) {
+            error("Unable to allocate args");
+        }
+
+        args->starting_row = assigned_rows;
+        assigned_rows += 100;
+
+        args->ending_column = assigned_rows > self->rows ? self->rows : assigned_rows;
+        args->starting_column = 0;
+        args->ending_column = self->columns;
+        args->life = self;
+
+        self->__thread_pool__->do_work(self->__thread_pool__, live_separate, (void *)args);
+    }
+
+    self->__thread_pool__->wait(self->__thread_pool__);
     self->swap(self);
 }
 
-life_t *init_life(int rows, int columns) {
+static void live(life_t *self) {
+    if (self->__thread_pool__ == NULL) {
+        for (int i = 0; i < self->rows; i++) {
+            for (int j = 0; j < self->columns; j++) {
+                cell_life(self, i, j);
+            }
+        }
+
+        self->swap(self);
+        return;
+    }
+
+    live_concurrently(self);
+}
+
+life_t *init_life(int rows, int columns, thread_pool_t *thread_pool) {
     srand(time(0));
     life_t *self;
 
@@ -162,6 +221,7 @@ life_t *init_life(int rows, int columns) {
     self->set_alive = set_alive;
     self->get_alive = get_alive;
     self->live = live;
+    self->__thread_pool__ = thread_pool;
 
     return self;
 }

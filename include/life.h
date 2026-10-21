@@ -4,11 +4,14 @@
 
 #include "utils/std_utils.h"
 #include "utils/string_utils.h"
+#include "lib/thread_pool.h"
+#include <pthread.h>
 #include <stdbool.h>
 #include <time.h>
 
 typedef struct life_t
 {
+    thread_pool_t *__thread_pool__;
     int rows;
     int columns;
     bool **grid;
@@ -23,7 +26,7 @@ typedef struct life_t
     int (*get_num_alive_neighbors)(struct life_t *self, int x, int y);
 } life_t;
 
-life_t *init_life(int rows, int columns);
+life_t *init_life(int rows, int columns, thread_pool_t *thread_pool);
 void destroy_life(life_t *self);
 
 #endif
